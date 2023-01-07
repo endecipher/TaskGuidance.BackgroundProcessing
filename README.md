@@ -1,5 +1,6 @@
+<img alt="packageIcon" src="https://github.com/endecipher/TaskGuidance.BackgroundProcessing/blob/main/packageIcon.png" width=20% height=20%> 
 
-# <img src="https://github.com/endecipher/TaskGuidance.BackgroundProcessing/blob/main/packageIcon.png" alt="packageIcon" width=10% height=10%> TaskGuidance.BackgroundProcessing
+# TaskGuidance.BackgroundProcessing
 
 Task Processing Engine which controls asynchronous, priority-based, output-optional actions/tasks for .NET
 
