@@ -1,7 +1,10 @@
 ﻿using System.Threading;
 
-namespace EventGuidance.Cancellation
+namespace TaskGuidance.BackgroundProcessing.Cancellation
 {
+    /// <summary>
+    /// Assists in cancellation activities
+    /// </summary>
     public interface ICancellationManager
     {
         void Refresh();

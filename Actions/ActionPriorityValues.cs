@@ -1,4 +1,4 @@
-﻿namespace EventGuidance.Structure
+﻿namespace TaskGuidance.BackgroundProcessing.Actions
 {
     public enum ActionPriorityValues
     {

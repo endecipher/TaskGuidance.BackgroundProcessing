@@ -2,9 +2,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace EventGuidance.Structure
+namespace TaskGuidance.BackgroundProcessing.Actions
 {
-    public static class TaskExtensions
+    public static class ActionExtensions
     {
         public static async Task<TResult> WithTimeOut<TResult>(this Task<TResult> task, TimeSpan timeout, CancellationToken? cancellationToken)
         {

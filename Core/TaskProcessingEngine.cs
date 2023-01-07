@@ -1,17 +1,16 @@
 ﻿using ActivityLogger.Logging;
-using EventGuidance.DataStructures;
-using EventGuidance.Logging;
-using EventGuidance.Structure;
 using System.Threading;
 using System.Threading.Tasks;
+using TaskGuidance.BackgroundProcessing.Actions;
+using TaskGuidance.BackgroundProcessing.Collections;
 
-namespace EventGuidance.Responsibilities
+namespace TaskGuidance.BackgroundProcessing.Core
 {
-    public class EventProcessor : IEventProcessor
+    public class TaskProcessingEngine : ITaskProcessingEngine
     {
         #region Constants
 
-        public const string EventProcessorEntity = nameof(EventProcessor);
+        public const string ProcessorEntity = nameof(TaskProcessingEngine);
         public const string Starting = nameof(Starting);
         public const string Waiting = nameof(Waiting);
         public const string Stopping = nameof(Stopping);
@@ -21,28 +20,28 @@ namespace EventGuidance.Responsibilities
 
         #endregion
 
-        IEventProcessorConfiguration EventProcessorConfiguration { get; }
+        IProcessorConfiguration ProcessorConfiguration { get; }
 
         ConcurrentPriorityQueue<IActionJetton, ActionPriorityValues> ConcurrentPriorityQueue { get; }
 
         IActivityLogger ActivityLogger { get; }
 
-        public EventProcessor(IEventProcessorConfiguration eventProcessorConfiguration, IActivityLogger activityLogger)
+        public TaskProcessingEngine(IProcessorConfiguration processorConfiguration, IActivityLogger activityLogger)
         {
-            EventProcessorConfiguration = eventProcessorConfiguration;
+            ProcessorConfiguration = processorConfiguration;
             ActivityLogger = activityLogger;
 
             ConcurrentPriorityQueue = new ConcurrentPriorityQueue<IActionJetton, ActionPriorityValues>(
-                EventProcessorConfiguration.EventProcessorQueueSize,
-                new PriorityComparer()
+                ProcessorConfiguration.ProcessorQueueSize,
+                new ActionPriorityComparer()
             );
         }
 
         public void StartProcessing(CancellationToken token)
         {
-            ActivityLogger?.Log(new GuidanceActivity
+            ActivityLogger?.Log(new Logging.GuidanceActivity
             {
-                EntitySubject = EventProcessorEntity,
+                EntitySubject = ProcessorEntity,
                 Event = Starting,
                 Level = ActivityLogLevel.Verbose,
 
@@ -55,10 +54,10 @@ namespace EventGuidance.Responsibilities
                 {
                     if (ConcurrentPriorityQueue.TryDequeue(out var info, out var priority))
                     {
-                        ActivityLogger?.Log(new GuidanceActivity
+                        ActivityLogger?.Log(new Logging.GuidanceActivity
                         {
                             Description = $"Dequeued and processing {info.EventKey}",
-                            EntitySubject = EventProcessorEntity,
+                            EntitySubject = ProcessorEntity,
                             Event = Dequeued,
                             Level = ActivityLogLevel.Verbose,
 
@@ -66,20 +65,20 @@ namespace EventGuidance.Responsibilities
                         .With(ActivityParam.New(EventKey, info.EventKey))
                         .WithCallerInfo());
 
-                        new Task(() => (info.EventAction as IJettonExecutor).Perform(info), token, TaskCreationOptions.AttachedToParent).Start();
+                        new Task(() => (info.Action as IJettonExecutor).Perform(info), token, TaskCreationOptions.AttachedToParent).Start();
                     }
                     else
                     {
-                        ActivityLogger?.Log(new GuidanceActivity
+                        ActivityLogger?.Log(new Logging.GuidanceActivity
                         {
-                            EntitySubject = EventProcessorEntity,
+                            EntitySubject = ProcessorEntity,
                             Event = Waiting,
                             Level = ActivityLogLevel.Verbose,
 
                         }
                         .WithCallerInfo());
 
-                        Task.Delay(EventProcessorConfiguration.EventProcessorWaitTimeWhenQueueEmpty_InMilliseconds, token).Wait();
+                        Task.Delay(ProcessorConfiguration.ProcessorWaitTimeWhenQueueEmpty_InMilliseconds, token).Wait();
                     }
                 }
             },
@@ -87,13 +86,13 @@ namespace EventGuidance.Responsibilities
             creationOptions: TaskCreationOptions.DenyChildAttach);
 
             process.Start();
-        }        
+        }
 
         public void Stop()
         {
-            ActivityLogger?.Log(new GuidanceActivity
+            ActivityLogger?.Log(new Logging.GuidanceActivity
             {
-                EntitySubject = EventProcessorEntity,
+                EntitySubject = ProcessorEntity,
                 Event = Stopping,
                 Level = ActivityLogLevel.Verbose,
 
@@ -104,10 +103,10 @@ namespace EventGuidance.Responsibilities
             {
                 info.MoveToStopped();
 
-                ActivityLogger?.Log(new GuidanceActivity
+                ActivityLogger?.Log(new Logging.GuidanceActivity
                 {
                     Description = $"Dequeued and force-stopping {info.EventKey}",
-                    EntitySubject = EventProcessorEntity,
+                    EntitySubject = ProcessorEntity,
                     Event = ForceStopping,
                     Level = ActivityLogLevel.Verbose,
 
@@ -121,7 +120,7 @@ namespace EventGuidance.Responsibilities
 
         public void Enqueue(IActionJetton info)
         {
-            ConcurrentPriorityQueue.Enqueue(info, info.EventAction.PriorityValue);
+            ConcurrentPriorityQueue.Enqueue(info, info.Action.PriorityValue);
         }
     }
 }

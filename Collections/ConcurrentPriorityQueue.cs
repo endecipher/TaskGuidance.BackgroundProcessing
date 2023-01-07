@@ -1,7 +1,10 @@
 ﻿using System.Collections.Generic;
 
-namespace EventGuidance.DataStructures
+namespace TaskGuidance.BackgroundProcessing.Collections
 {
+    /// <summary>
+    /// PriorityQueue with object locking for concurrency
+    /// </summary>
     public class ConcurrentPriorityQueue<TEntity, TPriorityValue> where TPriorityValue : struct
     {
         private PriorityQueue<TEntity, TPriorityValue> Queue;

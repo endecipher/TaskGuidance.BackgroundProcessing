@@ -1,11 +1,14 @@
 ﻿using System;
 
-namespace EventGuidance.Structure
+namespace TaskGuidance.BackgroundProcessing.Actions
 {
+    /// <summary>
+    /// Creates a trackable Jetton of an <see cref="IAction"/>.
+    /// </summary>
     public interface IActionJetton
     {
         bool IsBlocking { get; set; }
-        IEventAction EventAction { get; }
+        IAction Action { get; }
         string EventKey { get; }
         Exception Exception { get; set; }
         bool HasCanceled { get; }

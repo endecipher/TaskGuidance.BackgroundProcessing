@@ -1,8 +1,7 @@
 ﻿using ActivityLogger.Logging;
-using EventGuidance.Logging;
 using System;
 
-namespace EventGuidance.Structure
+namespace TaskGuidance.BackgroundProcessing.Actions
 {
     public class ActionJetton : IDisposable, IActionJetton
     {
@@ -20,14 +19,17 @@ namespace EventGuidance.Structure
 
         #endregion
 
+        Guid UniqueIdentifier { get; }
         IActivityLogger ActivityLogger { get; set; }
-        public IEventAction EventAction { get; }
+        public IAction Action { get; }
         public IActionLock Awaiter { get; private set; }
         public bool IsBlocking { get; set; }
-        public ActionJetton(IEventAction eventAction)
+
+        public ActionJetton(IAction action)
         {
-            Awaiter = new ActionLock();
-            EventAction = eventAction;
+            UniqueIdentifier = Guid.NewGuid();
+            Action = action;
+            Awaiter = new ActionLock(canReset: false);
         }
 
         public ActionJetton WithLogger(IActivityLogger activityLogger)
@@ -36,9 +38,7 @@ namespace EventGuidance.Structure
             return this;
         }
 
-        public string EventKey => string.Concat(EventAction.UniqueName, UniqueIdentifier.ToString());
-
-        private readonly Guid UniqueIdentifier = Guid.NewGuid();
+        public string EventKey => string.Concat(Action.UniqueName, UniqueIdentifier.ToString());
 
         public void Dispose()
         {
@@ -56,32 +56,28 @@ namespace EventGuidance.Structure
             {
                 Exception = encouteredException;
 
-                ActivityLogger?.Log(new GuidanceActivity
+                ActivityLogger?.Log(new Logging.GuidanceActivity
                 {
-                    Description = $"SignalDone() called on Exception. Setting Exception",
                     EntitySubject = ActionJettonEntity,
                     Event = SignalDoneCalledOnException,
                     Level = ActivityLogLevel.Verbose,
-
                 }
                 .With(ActivityParam.New(JettonUniqueIdentifier, UniqueIdentifier.ToString()))
-                .With(ActivityParam.New(JettonUniqueActionName, EventAction.UniqueName))
+                .With(ActivityParam.New(JettonUniqueActionName, Action.UniqueName))
                 .WithCallerInfo());
             }
             else
             {
                 Result = result;
 
-                ActivityLogger?.Log(new GuidanceActivity
+                ActivityLogger?.Log(new Logging.GuidanceActivity
                 {
-                    Description = $"SignalDone() called on Success, setting Result",
                     EntitySubject = ActionJettonEntity,
                     Event = SignalDoneCalledOnSuccess,
                     Level = ActivityLogLevel.Verbose,
-
                 }
                 .With(ActivityParam.New(JettonUniqueIdentifier, UniqueIdentifier.ToString()))
-                .With(ActivityParam.New(JettonUniqueActionName, EventAction.UniqueName))
+                .With(ActivityParam.New(JettonUniqueActionName, Action.UniqueName))
                 .WithCallerInfo());
             }
 
@@ -90,16 +86,15 @@ namespace EventGuidance.Structure
 
         public T GetResult<T>() where T : class
         {
-            ActivityLogger?.Log(new GuidanceActivity
+            ActivityLogger?.Log(new Logging.GuidanceActivity
             {
                 Description = $"GetResult<{nameof(T)}> called",
                 EntitySubject = ActionJettonEntity,
                 Event = GetResultCalled,
                 Level = ActivityLogLevel.Verbose,
-
             }
             .With(ActivityParam.New(JettonUniqueIdentifier, UniqueIdentifier.ToString()))
-            .With(ActivityParam.New(JettonUniqueActionName, EventAction.UniqueName))
+            .With(ActivityParam.New(JettonUniqueActionName, Action.UniqueName))
             .WithCallerInfo());
 
             Awaiter?.Wait();
@@ -111,7 +106,7 @@ namespace EventGuidance.Structure
                 return result;
             }
 
-            throw Exception ?? new InvalidOperationException("Cannot Get proper result type or result for a non completed and non blocking Event Action");
+            throw Exception ?? new InvalidOperationException($"Improper Casting to {nameof(T)}/Output Retrieval Failure");
         }
 
         public void FreeBlockingResources()
@@ -125,79 +120,79 @@ namespace EventGuidance.Structure
 
         #region Status Manipulations
 
-        private EventActionStatusValues Status = EventActionStatusValues.New;
+        private ActionStatusValues Status = ActionStatusValues.New;
 
-        public bool HasFaulted => Status == EventActionStatusValues.Faulted;
+        public bool HasFaulted => Status == ActionStatusValues.Faulted;
 
-        public bool HasCanceled => Status == EventActionStatusValues.Cancelled;
+        public bool HasCanceled => Status == ActionStatusValues.Cancelled;
 
-        public bool HasCompleted => Status == EventActionStatusValues.Completed;
+        public bool HasCompleted => Status == ActionStatusValues.Completed;
 
-        public bool HasSkipped => Status == EventActionStatusValues.Skipped;
+        public bool HasSkipped => Status == ActionStatusValues.Skipped;
 
-        public bool HasTimedOut => Status == EventActionStatusValues.TimedOut;
+        public bool HasTimedOut => Status == ActionStatusValues.TimedOut;
 
-        public bool IsProcessing => Status == EventActionStatusValues.Processing;
+        public bool IsProcessing => Status == ActionStatusValues.Processing;
 
 
         public void MoveToReady()
         {
-            Change(EventActionStatusValues.New);
+            Change(ActionStatusValues.New);
         }
 
         public void MoveToCompleted()
         {
-            Change(EventActionStatusValues.Completed);
+            Change(ActionStatusValues.Completed);
         }
 
         public void MoveToSkipped()
         {
-            Change(EventActionStatusValues.Skipped);
+            Change(ActionStatusValues.Skipped);
         }
 
         public void MoveToFaulted()
         {
-            Change(EventActionStatusValues.Faulted);
+            Change(ActionStatusValues.Faulted);
         }
 
         public void MoveToProcessing()
         {
-            Change(EventActionStatusValues.Processing);
+            Change(ActionStatusValues.Processing);
         }
 
         public void MoveToTimeOut()
         {
-            Change(EventActionStatusValues.TimedOut);
+            Change(ActionStatusValues.TimedOut);
         }
 
         public void MoveToCancelled()
         {
-            Change(EventActionStatusValues.Cancelled);
+            Change(ActionStatusValues.Cancelled);
         }
 
         public void MoveToStopped()
         {
-            Change(EventActionStatusValues.Stopped);
-            EventAction.CancellationManager.TriggerCancellation();
+            Change(ActionStatusValues.Stopped);
+            Action.CancellationManager.TriggerCancellation();
         }
 
-        private void Change(EventActionStatusValues newValue)
+        private void Change(ActionStatusValues newValue)
         {
-            ActivityLogger?.Log(new GuidanceActivity
+            ActivityLogger?.Log(new Logging.GuidanceActivity
             {
                 EntitySubject = ActionJettonEntity,
                 Event = StatusChanged,
                 Level = ActivityLogLevel.Verbose,
-
             }
             .With(ActivityParam.New(JettonUniqueIdentifier, UniqueIdentifier.ToString()))
-            .With(ActivityParam.New(JettonUniqueActionName, EventAction.UniqueName))
+            .With(ActivityParam.New(JettonUniqueActionName, Action.UniqueName))
             .With(ActivityParam.New(OldStatus, Status.ToString()))
             .With(ActivityParam.New(NewStatus, newValue.ToString()))
             .WithCallerInfo());
 
             Status = newValue;
         }
+
         #endregion
     }
 }

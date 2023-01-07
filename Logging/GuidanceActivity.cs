@@ -1,6 +1,6 @@
 ﻿using ActivityLogger.Logging;
 
-namespace EventGuidance.Logging
+namespace TaskGuidance.BackgroundProcessing.Logging
 {
     internal class GuidanceActivity : Activity
     {

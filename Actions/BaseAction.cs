@@ -1,18 +1,22 @@
 ﻿using ActivityLogger.Logging;
-using EventGuidance.Cancellation;
-using EventGuidance.Logging;
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using TaskGuidance.BackgroundProcessing.Cancellation;
 
-namespace EventGuidance.Structure
+namespace TaskGuidance.BackgroundProcessing.Actions
 {
-    public abstract class EventAction<TInput, TOutput> : IEventAction, IJettonExecutor where TInput : class where TOutput : class
+    /// <summary>
+    /// Base Wrapper Action for background processing
+    /// </summary>
+    /// <typeparam name="TInput">Input Type</typeparam>
+    /// <typeparam name="TOutput">Output Type. <see cref="object"/> may be specified for non blocking actions</typeparam>
+    public abstract class BaseAction<TInput, TOutput> : IAction, IJettonExecutor where TInput : class where TOutput : class
     {
         #region Constants
 
-        private const string EventActionEntity = nameof(IEventAction);
+        private const string ActionEntity = nameof(IAction);
         private const string Exception = nameof(Exception);
         private const string _New = nameof(_New);
         private const string UniqueActionName = nameof(UniqueActionName);
@@ -39,22 +43,18 @@ namespace EventGuidance.Structure
         #endregion
 
         protected TInput Input = null;
-
         public abstract TimeSpan TimeOut { get; }
-        protected virtual TimeSpan? ShouldProceedTimeOut { get; } = null;
-
         public virtual ActionPriorityValues PriorityValue { get; set; } = ActionPriorityValues.Medium;
-
         public abstract string UniqueName { get; }
 
-        public EventAction(TInput input, IActivityLogger activityLogger = null)
+        public BaseAction(TInput input, IActivityLogger activityLogger = null)
         {
             Input = input;
             ActivityLogger = activityLogger;
 
-            ActivityLogger?.Log(new GuidanceActivity
+            ActivityLogger?.Log(new Logging.GuidanceActivity
             {
-                EntitySubject = EventActionEntity,
+                EntitySubject = ActionEntity,
                 Event = _New,
                 Level = ActivityLogLevel.Debug,
             }
@@ -71,32 +71,28 @@ namespace EventGuidance.Structure
 
         /// <summary>
         /// Returns Default Output of the Action. Used to initialize the Output.
-        /// In any event of failure, the defult Output would be considered for BlockingEventActions.
+        /// In any event of failure, the defult Output would be considered for Blocking <see cref="BaseAction{TInput, TOutput}"/>.
         /// </summary>
-        /// <returns></returns>
         protected virtual TOutput DefaultOutput()
         {
             return default;
         }
 
         /// <summary>
-        /// Precondition to check whether the Processing should continue.
+        /// Precondition to check whether the <see cref="Action(CancellationToken)"/> should continue.
         /// </summary>
-        /// <returns></returns>
         protected abstract Task<bool> ShouldProceed();
 
         /// <summary>
-        /// Core Action to perform. Called within a Timeout wrapper.
+        /// Core Action to perform. Called within a TimeOut wrapper using <see cref="TimeOut"/>
         /// </summary>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
+        /// <param name="cancellationToken">Implicit usage. If <see cref="SupportCancellation(ICancellationManager)"/> is called, <see cref="ICancellationManager.CoreToken"/> is used. Else <see cref="CancellationToken.None"/> is used.</param>
         protected abstract Task<TOutput> Action(CancellationToken cancellationToken);
 
         /// <summary>
-        /// Fired when The Core Action successfully completes.
+        /// Fired when the Core Action successfully completes.
         /// </summary>
-        /// <param name="outputObtained"></param>
-        /// <returns></returns>
+        /// <param name="outputObtained">Output obtained from the previously executed <see cref="Action(CancellationToken)"/></param>
         protected virtual async Task PostAction(TOutput outputObtained)
         {
             await Task.CompletedTask;
@@ -105,7 +101,6 @@ namespace EventGuidance.Structure
         /// <summary>
         /// Fired when Timeout Exception is caught.
         /// </summary>
-        /// <returns></returns>
         protected virtual async Task OnTimeOut()
         {
             await Task.CompletedTask;
@@ -113,28 +108,25 @@ namespace EventGuidance.Structure
 
         /// <summary>
         /// Fired when the Action is cancelled externally and TaskCanceledException/OperationCanceledException is caught.
-        /// TODO: Determine difference
         /// </summary>
-        /// <returns></returns>
         protected virtual async Task OnCancellation()
         {
             await Task.CompletedTask;
         }
 
         /// <summary>
-        /// Fired when an Aggregate Exception/Fault occurs
+        /// Fired when a fault/unknown error occurs
         /// </summary>
-        /// <returns></returns>
         protected virtual async Task OnFailure()
         {
             await Task.CompletedTask;
         }
 
         /// <summary>
-        /// Fired after the <see cref="IActionJetton.SetResultIfAny{T}(T, System.Exception)"/> is called
+        /// Fired after the <see cref="IActionJetton.SetResultIfAny{T}(T, System.Exception)"/> is called. 
+        /// Custom logic after releasing the waiting caller thread may be defined here.
         /// </summary>
-        /// <returns></returns>
-        protected virtual async Task OnEventActionEnd()
+        protected virtual async Task OnActionEnd()
         {
             await Task.CompletedTask;
         }
@@ -142,7 +134,7 @@ namespace EventGuidance.Structure
         #endregion
 
         /// <summary>
-        /// Core Task to be queued for Processing. 
+        /// Action Workflow - to be started from the <see cref="Core.ITaskProcessingEngine"/> in the background
         /// </summary>
         async Task IJettonExecutor.Perform(IActionJetton jetton)
         {
@@ -153,9 +145,7 @@ namespace EventGuidance.Structure
             {
                 Log(_Begin);
 
-                bool canProceed = ShouldProceedTimeOut.HasValue ? await ShouldProceed().WithTimeOut(ShouldProceedTimeOut.Value, CancellationManager?.CoreToken) : await ShouldProceed();
-
-                if (canProceed)
+                if (await ShouldProceed())
                 {
                     Log(_Proceeding);
 
@@ -169,9 +159,6 @@ namespace EventGuidance.Structure
 
                     Log(_CoreActionEnded);
 
-                    //No Cancellation post action, since the action itself may trigger new Responsibilities, which could cancel EventProcessor.
-                    //So, since it's expected, we would want this action to at least move on without throwing a cancellation exception
-
                     await PostAction(output);
 
                     jetton.MoveToCompleted();
@@ -183,25 +170,25 @@ namespace EventGuidance.Structure
                     jetton.MoveToSkipped();
                 }
             }
-            catch (TimeoutException t)
+            catch (TimeoutException timeOutException)
             {
-                exception = t;
+                exception = timeOutException;
 
                 jetton.MoveToTimeOut();
 
-                Log(_OnTimeOut, t);
+                Log(_OnTimeOut, timeOutException);
 
                 await OnTimeOut();
             }
-            catch (AggregateException ae)
+            catch (AggregateException aggregateException)
             {
-                exception = ae;
+                exception = aggregateException;
 
-                var ex = ae.InnerExceptions.First();
+                var ex = aggregateException.InnerExceptions.First();
 
-                foreach (var e in ae.InnerExceptions)
+                foreach (var exceptionItem in aggregateException.InnerExceptions)
                 {
-                    Log(_OnException, e);
+                    Log(_OnException, exceptionItem);
                 }
 
                 if (ex is TaskCanceledException || ex is OperationCanceledException)
@@ -234,33 +221,33 @@ namespace EventGuidance.Structure
 
             Log(_PostProcessSignalling);
 
-            jetton.SetResultIfAny<TOutput>(output, exception);
+            jetton.SetResultIfAny(output, exception);
 
-            await OnEventActionEnd();
+            await OnActionEnd();
         }
 
-        private void Log(string ev, Exception ex = null)
+        private void Log(string @event, Exception ex = null)
         {
             bool hasException = ex != null;
 
-            Activity e = new GuidanceActivity
+            Activity activity = new Logging.GuidanceActivity
             {
                 EntitySubject = UniqueName,
-                Event = ev,
+                Event = @event,
                 Level = !hasException ? ActivityLogLevel.Verbose : ActivityLogLevel.Error,
             };
 
             if (hasException)
             {
-                e = e.With(ActivityParam.New(Exception, ex));
+                activity = activity.With(ActivityParam.New(Exception, ex));
             }
 
-            ActivityLogger?.Log(e.WithCallerInfo());
+            ActivityLogger?.Log(activity.WithCallerInfo());
         }
 
         IActionJetton IJettonExecutor.ReturnJetton()
         {
-            return new ActionJetton(eventAction: this).WithLogger(ActivityLogger);
+            return new ActionJetton(action: this).WithLogger(ActivityLogger);
         }
     }
 }

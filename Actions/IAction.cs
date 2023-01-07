@@ -1,9 +1,9 @@
-﻿using EventGuidance.Cancellation;
-using System;
+﻿using System;
+using TaskGuidance.BackgroundProcessing.Cancellation;
 
-namespace EventGuidance.Structure
+namespace TaskGuidance.BackgroundProcessing.Actions
 {
-    public interface IEventAction
+    public interface IAction
     {
         ICancellationManager CancellationManager { get; }
 

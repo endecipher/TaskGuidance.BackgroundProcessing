@@ -1,11 +1,11 @@
-﻿namespace EventGuidance.Structure
+﻿namespace TaskGuidance.BackgroundProcessing.Actions
 {
-    public enum EventActionStatusValues
+    public enum ActionStatusValues
     {
         New = 0,
         Processing = 1,
-        Faulted = 3,
         Completed = 2,
+        Faulted = 3,
         Cancelled = 4,
         TimedOut = 5,
         Stopped = 6,

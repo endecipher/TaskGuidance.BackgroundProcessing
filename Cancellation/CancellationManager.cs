@@ -1,8 +1,7 @@
 ﻿using ActivityLogger.Logging;
-using EventGuidance.Logging;
 using System.Threading;
 
-namespace EventGuidance.Cancellation
+namespace TaskGuidance.BackgroundProcessing.Cancellation
 {
     public class CancellationManager : ICancellationManager
     {
@@ -31,7 +30,7 @@ namespace EventGuidance.Cancellation
 
         public void TriggerCancellation()
         {
-            ActivityLogger?.Log(new GuidanceActivity
+            ActivityLogger?.Log(new Logging.GuidanceActivity
             {
                 EntitySubject = CancellationManagerEntity,
                 Event = CancellationTriggered,
@@ -49,7 +48,7 @@ namespace EventGuidance.Cancellation
 
         public void Bind(CancellationToken token)
         {
-            ActivityLogger?.Log(new GuidanceActivity
+            ActivityLogger?.Log(new Logging.GuidanceActivity
             {
                 EntitySubject = CancellationManagerEntity,
                 Event = BindingTriggered,
@@ -61,7 +60,7 @@ namespace EventGuidance.Cancellation
 
             token.Register(() =>
             {
-                ActivityLogger?.Log(new GuidanceActivity
+                ActivityLogger?.Log(new Logging.GuidanceActivity
                 {
                     EntitySubject = CancellationManagerEntity,
                     Event = CancellationTriggeredViaBinding,
@@ -81,9 +80,6 @@ namespace EventGuidance.Cancellation
             InternalSource = new CancellationTokenSource();
         }
 
-        /// <summary>
-        /// Throws a System.OperationCanceledException if any of the registered tokens has had cancellation requested
-        /// </summary>
         public void ThrowIfCancellationRequested()
         {
             if (CoreToken.IsCancellationRequested)
