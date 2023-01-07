@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+
+    <PackageId>TaskGuidance.BackgroundProcessing</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Authors>Ayan Choudhury</Authors>
+    <Product>TaskGuidance.BackgroundProcessing</Product>
+    <Description>Task Processing Engine which controls asynchronous, priority-based, output-optional actions/tasks for .NET</Description>
+    <Copyright>Copyright © Ayan Choudhury 2023</Copyright>
+    <PackageTags>Task;Guidance;Background;Processing;Await;Task Handling;Async;Asynchronous;Thread;Activity;Event;Extensible;Queue;Engine;Start;Priority;Awaitable;Handler;Offline;</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>packageIcon.png</PackageIcon>
+    <RepositoryUrl>https://github.com/endecipher/TaskGuidance.BackgroundProcessing</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="packageIcon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="ActivityLogger" Version="1.0.1" />
+  </ItemGroup>
+
+</Project>
