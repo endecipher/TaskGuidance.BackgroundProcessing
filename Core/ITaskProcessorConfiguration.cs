@@ -1,6 +1,6 @@
 ﻿namespace TaskGuidance.BackgroundProcessing.Core
 {
-    public interface IProcessorConfiguration
+    public interface ITaskProcessorConfiguration
     {
         /// <summary>
         /// Action Queue Initial Capacity.

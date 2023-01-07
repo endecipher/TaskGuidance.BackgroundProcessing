@@ -20,13 +20,13 @@ namespace TaskGuidance.BackgroundProcessing.Core
 
         #endregion
 
-        IProcessorConfiguration ProcessorConfiguration { get; }
+        ITaskProcessorConfiguration ProcessorConfiguration { get; }
 
         ConcurrentPriorityQueue<IActionJetton, ActionPriorityValues> ConcurrentPriorityQueue { get; }
 
         IActivityLogger ActivityLogger { get; }
 
-        public TaskProcessingEngine(IProcessorConfiguration processorConfiguration, IActivityLogger activityLogger)
+        public TaskProcessingEngine(ITaskProcessorConfiguration processorConfiguration, IActivityLogger activityLogger)
         {
             ProcessorConfiguration = processorConfiguration;
             ActivityLogger = activityLogger;

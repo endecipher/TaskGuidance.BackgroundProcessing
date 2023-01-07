@@ -1,6 +1,6 @@
 ﻿namespace TaskGuidance.BackgroundProcessing.Core
 {
-    public class EventProcessorConfiguration : IProcessorConfiguration
+    public class TaskProcessorConfiguration : ITaskProcessorConfiguration
     {
         public int ProcessorQueueSize { get; set; } = 100;
 

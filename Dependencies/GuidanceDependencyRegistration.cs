@@ -15,7 +15,7 @@ namespace TaskGuidance.BackgroundProcessing.Dependencies
             container.RegisterTransient<ICancellationManager, CancellationManager>();
             container.RegisterSingleton<IResponsibilities, Responsibilities>();
             container.RegisterSingleton<ITaskProcessingEngine, TaskProcessingEngine>();
-            container.RegisterSingleton<IProcessorConfiguration, EventProcessorConfiguration>();
+            container.RegisterSingleton<ITaskProcessorConfiguration, TaskProcessorConfiguration>();
         }
     }
 }
